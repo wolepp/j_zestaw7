@@ -2,6 +2,7 @@ package serialize;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.lang.reflect.Type;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -20,6 +21,8 @@ public class Circular<E extends Serializable>
 
     @Override
     public int remainingCapacity() {
+        if (writePos == readPos && buf[readPos] == null)
+            return bufSize;
         return (writePos > readPos) ? writePos - readPos : bufSize + writePos - readPos;
     }
 
@@ -100,6 +103,9 @@ public class Circular<E extends Serializable>
 
     // ---------
 
+    private String nameOfClass(int i) {
+        return buf[i].getClass().getSimpleName();
+    }
 
     @Override
     public String toString() {
@@ -110,12 +116,18 @@ public class Circular<E extends Serializable>
         StringBuilder sb = new StringBuilder();
         sb.append('[');
         for (int i = 0; i < bufSize; i++) {
+            sb.append("ind: " + i);
+            sb.append("; odległość od głowy: ");
+            sb.append((bufSize - i + writePos) % bufSize);
+
             if (buf[i] == null)
                 sb.append("Empty");
-            else
+            else {
                 sb.append(buf[i]);
+                sb.append("; typ obiektu: " + nameOfClass(i));
+            }
             if (i < bufSize - 1)
-                sb.append(", ");
+                sb.append(System.lineSeparator());
         }
         sb.append(']');
         return sb.toString();
