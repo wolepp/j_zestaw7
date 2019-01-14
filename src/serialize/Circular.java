@@ -9,12 +9,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class Circular<E extends Serializable>
-        implements Serializable, BlockingQueue<E> {
+        implements Serializable, BlockingQueue<E>, Iterable<E> {
 
-    private int bufSize;
-    private E[] buf;
-    private int readPos = 0;
-    private int writePos = 0;
+    protected int bufSize;
+    protected E[] buf;
+    protected int readPos = 0;
+    protected int writePos = 0;
 
     public Circular(int bufSize) {
         this.bufSize = bufSize;
@@ -146,15 +146,15 @@ public class Circular<E extends Serializable>
         StringBuilder sb = new StringBuilder();
         sb.append('[');
         for (int i = 0; i < bufSize; i++) {
-            sb.append("ind: " + i);
+            sb.append("ind: ").append(i);
             sb.append("; od głowy: ");
             sb.append((bufSize - i + writePos) % bufSize);
 
             if (buf[i] == null) {
                 sb.append("; Empty");
             } else {
-                sb.append("; typ obiektu: " + nameOfClass(buf[i]));
-                sb.append("; " + buf[i]);
+                sb.append("; typ obiektu: ").append(nameOfClass(buf[i]));
+                sb.append("; ").append(buf[i]);
             }
             if (i < bufSize - 1)
                 sb.append(System.lineSeparator());
@@ -165,6 +165,11 @@ public class Circular<E extends Serializable>
 
     private String nameOfClass(Object o) {
         return o.getClass().getSimpleName();
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+        return new CircularIterator<>(this);
     }
 
 
@@ -211,11 +216,6 @@ public class Circular<E extends Serializable>
     @Override
     public boolean isEmpty() {
         return false;
-    }
-
-    @Override
-    public Iterator<E> iterator() {
-        return null;
     }
 
     @Override

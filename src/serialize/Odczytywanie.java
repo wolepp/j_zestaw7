@@ -9,9 +9,8 @@ public class Odczytywanie {
         Circular<String> circular;
         try(ObjectInputStream input = new ObjectInputStream(new FileInputStream("bufor.ser"))) {
             circular = (Circular) input.readObject();
-            System.out.println(circular.take());
-            System.out.println(circular.poll());
-            System.out.println(circular.remove());
+            for (String string : circular)
+                System.out.println(string);
         } catch (Exception e) {
             e.printStackTrace();
         }
