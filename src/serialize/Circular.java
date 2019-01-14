@@ -1,5 +1,6 @@
 package serialize;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.Collection;
@@ -28,6 +29,26 @@ public class Circular<E extends Serializable>
                 ? bufSize + readPos - writePos : readPos - writePos;
     }
 
+    private void readObject(java.io.ObjectInputStream stream)
+            throws IOException, ClassNotFoundException {
+        this.bufSize = stream.read();
+        this.buf = (E[]) new Serializable[bufSize];
+        int elements = stream.read();
+        for (int i = 0; i < elements; i++)
+            buf[i] = (E) stream.readObject();
+        readPos = 0;
+        writePos = elements;
+    }
+
+    private void writeObject(java.io.ObjectOutputStream stream)
+            throws IOException {
+        stream.write(bufSize);
+        stream.write(bufSize - remainingCapacity());
+        for (int i = readPos; i != writePos; i = (i + 1) % bufSize)
+            stream.writeObject(buf[i]);
+    }
+
+    // INSERT OPERATIONS
     @Override
     public boolean add(E e) throws NullPointerException, IllegalStateException {
         if (offer(e))
@@ -50,7 +71,7 @@ public class Circular<E extends Serializable>
     }
 
     @Override
-    public void put(E e) throws InterruptedException, NullPointerException {
+    public synchronized void put(E e) throws InterruptedException, NullPointerException {
         if (buf[writePos] != null)
             this.wait();
 
@@ -58,9 +79,9 @@ public class Circular<E extends Serializable>
         this.notify();
     }
 
+    // REMOVE OPERATIONS
     @Override
-    public E take() throws InterruptedException {
-
+    public synchronized E take() throws InterruptedException {
         if (buf[readPos] == null)
             this.wait();
         E e = poll();
@@ -79,7 +100,7 @@ public class Circular<E extends Serializable>
     }
 
     @Override
-    public E remove() throws NullPointerException{
+    public E remove() throws NullPointerException {
         if (buf[readPos] == null)
             throw new NullPointerException();
 
@@ -88,13 +109,25 @@ public class Circular<E extends Serializable>
     }
 
     @Override
-    public synchronized boolean remove(Object o) {
-        //TODO:
-        //szuka tylko od read do write
-        // jeśli nie ma to false
-        //else
-        // kasuje i przesuwa odpowiednio reszte, albo w prawo albo w lewo (chyba już co wygodniej)
-        return false;
+    public synchronized boolean remove(Object o) throws NullPointerException {
+
+        if (o == null)
+            throw new NullPointerException();
+
+        int objectIdx = 0;
+        for (objectIdx = readPos; objectIdx != writePos; objectIdx = (objectIdx+1) % bufSize)
+            if (buf[objectIdx].equals(o))
+                break;
+
+        if (objectIdx == writePos)
+            return false;
+
+        writePos = (writePos - 1 + bufSize) % bufSize;
+        for (int i = objectIdx; i != writePos; i = (i + 1) % bufSize)
+            buf[i] = buf[(i + 1) % bufSize];
+
+        buf[writePos] = null;
+        return true;
     }
 
     @Override
@@ -106,10 +139,6 @@ public class Circular<E extends Serializable>
             ts[i] = (T) buf[i];
 
         return ts;
-    }
-
-    private String nameOfClass(int i) {
-        return buf[i].getClass().getSimpleName();
     }
 
     @Override
@@ -124,7 +153,7 @@ public class Circular<E extends Serializable>
             if (buf[i] == null) {
                 sb.append("; Empty");
             } else {
-                sb.append("; typ obiektu: " + nameOfClass(i));
+                sb.append("; typ obiektu: " + nameOfClass(buf[i]));
                 sb.append("; " + buf[i]);
             }
             if (i < bufSize - 1)
@@ -133,6 +162,11 @@ public class Circular<E extends Serializable>
         sb.append(']');
         return sb.toString();
     }
+
+    private String nameOfClass(Object o) {
+        return o.getClass().getSimpleName();
+    }
+
 
     @Override
     public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
@@ -171,7 +205,7 @@ public class Circular<E extends Serializable>
 
     @Override
     public int size() {
-        return 0;
+        return bufSize;
     }
 
     @Override
